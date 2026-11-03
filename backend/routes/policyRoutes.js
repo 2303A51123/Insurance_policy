@@ -35,7 +35,10 @@ router.post('/', auth, allowRoles('admin', 'agent'), asyncHandler(async (req, re
 
   const start = startDate ? new Date(startDate) : new Date();
   const expiry = expiryDate ? new Date(expiryDate) : new Date(start);
-  if (!startDate) expiry.setFullYear(expiry.getFullYear() + 1);
+  if (!expiryDate) expiry.setFullYear(expiry.getFullYear() + 1);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(expiry.getTime()) || expiry <= start) {
+    return res.status(400).json({ message: 'Expiry date must be after the start date.' });
+  }
   const policy = await Policy.create({
     policyNumber: `POL-${Date.now()}`,
     policyholder,
