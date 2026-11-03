@@ -1,4 +1,5 @@
 const InsuranceProduct = require('../models/InsuranceProduct');
+const Policy = require('../models/Policy');
 
 async function listProducts(req, res) {
   const products = await InsuranceProduct.find().sort({ productName: 1 });
@@ -22,6 +23,10 @@ async function updateProduct(req, res) {
 }
 
 async function deleteProduct(req, res) {
+  const policyExists = await Policy.exists({ product: req.params.id });
+  if (policyExists) {
+    return res.status(400).json({ message: 'A product used by a policy cannot be deleted.' });
+  }
   const product = await InsuranceProduct.findByIdAndDelete(req.params.id);
   if (!product) {
     return res.status(404).json({ message: 'Product was not found.' });
