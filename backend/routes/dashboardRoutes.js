@@ -22,7 +22,12 @@ router.get('/summary', auth, asyncHandler(async (req, res) => {
     Policy.countDocuments(ownPolicies),
     Claim.countDocuments(ownClaims),
     Payment.aggregate([
-      { $match: req.user.role === 'policyholder' ? { policyholder: req.user._id } : {} },
+      {
+        $match: {
+          ...(req.user.role === 'policyholder' ? { policyholder: req.user._id } : {}),
+          paymentStatus: 'Completed',
+        },
+      },
       { $group: { _id: null, total: { $sum: '$amount' } } },
     ]),
   ]);
