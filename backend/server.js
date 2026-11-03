@@ -8,7 +8,6 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
@@ -22,6 +21,12 @@ app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 app.use((error, req, res, next) => {
+  if (error.name === 'MulterError') {
+    const message = error.code === 'LIMIT_FILE_SIZE'
+      ? 'Document must be 5 MB or smaller.'
+      : error.message;
+    return res.status(400).json({ message });
+  }
   if (error.name === 'ValidationError') {
     return res.status(400).json({ message: error.message });
   }

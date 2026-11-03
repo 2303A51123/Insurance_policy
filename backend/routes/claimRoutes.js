@@ -45,6 +45,21 @@ router.get('/', auth, asyncHandler(async (req, res) => {
   return res.json(claims);
 }));
 
+router.get('/:id/document', auth, asyncHandler(async (req, res, next) => {
+  const claim = await Claim.findById(req.params.id);
+  if (!claim || !claim.document) {
+    return res.status(404).json({ message: 'Claim document was not found.' });
+  }
+  const ownsClaim = claim.policyholder.equals(req.user._id);
+  const isAssignedOfficer = claim.assignedOfficer?.equals(req.user._id);
+  if (req.user.role !== 'admin' && !ownsClaim && !isAssignedOfficer) {
+    return res.status(403).json({ message: 'You do not have permission to view this document.' });
+  }
+  return res.sendFile(path.join(uploadFolder, path.basename(claim.document)), (error) => {
+    if (error) next(error);
+  });
+}));
+
 router.post('/', auth, allowRoles('policyholder'), upload.single('document'), asyncHandler(async (req, res) => {
   const { policy: policyId, claimAmount, description } = req.body;
   if (!mongoose.isValidObjectId(policyId) || !claimAmount || !description) {
@@ -76,10 +91,15 @@ router.patch('/:id/review', auth, allowRoles('claimsOfficer', 'admin'), asyncHan
   if (!claim) {
     return res.status(404).json({ message: 'Claim was not found.' });
   }
+  const allowedTransitions = {
+    Submitted: ['Under Review', 'Approved', 'Rejected'],
+    'Under Review': ['Approved', 'Rejected'],
+    Approved: ['Settled'],
+  };
+  if (!allowedTransitions[claim.status]?.includes(status)) {
+    return res.status(400).json({ message: `A ${claim.status.toLowerCase()} claim cannot be changed to ${status.toLowerCase()}.` });
+  }
   if (status === 'Settled') {
-    if (claim.status !== 'Approved') {
-      return res.status(400).json({ message: 'Only an approved claim can be settled.' });
-    }
     if (settlementAmount === undefined || Number(settlementAmount) < 0) {
       return res.status(400).json({ message: 'Enter a valid settlement amount.' });
     }
