@@ -31,7 +31,7 @@ frontend/
 
 ## Requirements
 
-- Node.js 18 or newer
+- Node.js 22 or newer
 - MongoDB Community Server running locally, or a MongoDB connection string
 - npm
 
@@ -40,18 +40,18 @@ frontend/
 1. Copy `.env.example` to `.env` in the project root.
 2. Set `MONGODB_URI` to your MongoDB connection string.
 3. Replace `JWT_SECRET` with a long private value.
-4. Install backend packages:
+4. Install backend packages from the lock file:
 
    ```powershell
-   Set-Location backend
-   npm install
+   Set-Location .\backend
+   npm ci
    ```
 
 5. In another terminal, install frontend packages:
 
    ```powershell
-   Set-Location frontend
-   npm install
+   Set-Location .\frontend
+   npm ci
    ```
 
 ## Run the application
@@ -75,6 +75,8 @@ Open the frontend address printed by Vite (usually `http://localhost:5173`). The
 
 The seed command creates demonstration data only when the database has no users. It creates four accounts, two products, two policies, a payment, and a claim.
 
+Only run the seed command against a local demonstration database. It creates accounts with published sample passwords; never seed a production database.
+
 ## Demonstration accounts
 
 | Role | Email | Password |
@@ -93,7 +95,7 @@ Public registration creates policyholder accounts only. An admin or agent can al
 - **Insurance products:** Everyone can browse; admins can add, edit, or delete products.
 - **Policies:** Admins and agents create policies; policyholders see only their own policies and renewal dates.
 - **Claims:** Policyholders submit claims and optional supporting documents. Claims officers review assigned claims, add remarks, approve/reject, and record a settlement. Admins can assign claims officers.
-- **Premium payments:** Admins and agents record payment entries; policyholders see their payment history. This is a classroom record-keeping feature, not a real payment gateway.
+- **Premium payments:** Admins and agents record payment entries. Policyholders see the amount paid and remaining balance for each policy, then can record the full remaining amount as a simulated bank transfer. No bank details are collected and no real money moves.
 - **Reports:** Admins can view the policy register, claims status, premium collection, and claim settlement reports.
 - **Users:** Admins view all users; admins and agents can register policyholders.
 
@@ -107,6 +109,8 @@ Uploaded claim documents can be PDF, PNG, JPG, or Word files up to 5 MB. Only th
 - `/api/policies` — list and create policies
 - `/api/claims` — submit and list claims; review and assign claims
 - `/api/payments` — list and record premium payments
+- `GET /api/payments/balances` — see the signed-in policyholder's remaining premium amounts
+- `POST /api/payments/repay` — record a demo bank transfer for a policy's remaining premium
 - `/api/reports/policy-register`
 - `/api/reports/claims-status`
 - `/api/reports/premium-collection`
@@ -133,3 +137,62 @@ Build the React frontend:
 Set-Location frontend
 npm run build
 ```
+
+## Deployment
+
+### Single-container deployment (Docker)
+
+The root `Dockerfile` builds the React frontend and serves it and the API from one Node.js service. This avoids separate frontend/API CORS configuration.
+
+1. Build the image from the repository root:
+
+   ```sh
+   docker build -t insurance-policy .
+   ```
+
+2. Run it with a production MongoDB connection and a private JWT secret:
+
+   ```sh
+   docker run --name insurance-policy \
+     -p 5000:5000 \
+     -e MONGODB_URI="your-production-mongodb-uri" \
+     -e JWT_SECRET="$(openssl rand -hex 32)" \
+     -v insurance-uploads:/app/backend/uploads \
+     insurance-policy
+   ```
+
+3. Configure the hosting platform's health check as `GET /api/health`. Keep the `insurance-uploads` volume persistent so claim documents survive restarts and redeploys.
+
+Set secrets in the hosting provider's environment settings rather than committing them. Use a managed MongoDB database with a dedicated, least-privilege database user. Never run the demo seed script on production.
+
+### Separate frontend and API services
+
+The frontend and API can also be deployed separately:
+
+### Backend service
+
+- Build/install command: `npm ci` (run from `backend/`)
+- Start command: `npm start`
+- Configure these environment variables in the hosting dashboard:
+  - `MONGODB_URI`: production MongoDB connection string. Use a dedicated database user with only the required database permissions.
+  - `JWT_SECRET`: a private random value with at least 32 characters. Do not reuse the example value.
+  - `CORS_ORIGIN`: the exact public frontend origin, without a trailing slash. Multiple origins can be comma-separated.
+  - `NODE_ENV`: `production`
+  - `PORT`: use the value supplied by the host.
+  - `UPLOAD_DIR`: optional path to persistent storage for claim documents. If omitted, files are written to `backend/uploads`.
+- Configure the API host's health check to use `GET /api/health`. It returns `503` until MongoDB is connected.
+- Uploaded documents need durable storage. Attach a persistent volume and point `UPLOAD_DIR` at it, or use a storage service before deploying to a host with an ephemeral filesystem.
+
+### Frontend static site
+
+- Install and build from `frontend/`:
+  ```sh
+  npm ci
+  npm run build
+  ```
+- Publish directory: `frontend/dist`
+- Set `VITE_API_URL` at build time to the deployed API base URL, including `/api` (for example, `https://your-api.example.com/api`).
+- Configure the static host to serve `index.html` for client-side routes such as `/dashboard` and `/payments`.
+- Add the static site's exact origin to the backend's `CORS_ORIGIN`, then rebuild/redeploy the frontend if its API URL changes.
+
+Do not run `npm run seed` on production; it creates well-known demo accounts and demonstration records. The project is a college/demo application: premium repayment records a simulated transfer and does not process real money.

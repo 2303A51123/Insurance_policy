@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Notice from '../components/Notice';
+import { BrandMark } from '../components/Icon';
 
 export default function Login() {
-  const { user, login } = useAuth();
+  const { user, authError, login } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
@@ -29,10 +30,11 @@ export default function Login() {
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <span className="brand-mark large">P</span>
+        <BrandMark large />
         <p className="eyebrow">POLICY DESK</p>
         <h1>Welcome back</h1>
         <p className="muted">Log in to manage your insurance account.</p>
+        <Notice message={authError} />
         <form className="form-stack" onSubmit={submit}>
           <label>Email<input type="email" autoComplete="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
           <label>Password<input type="password" autoComplete="current-password" required value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>

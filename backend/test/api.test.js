@@ -1,4 +1,5 @@
 process.env.JWT_SECRET = 'test-secret-for-insurance-api';
+process.env.CORS_ORIGIN = 'http://localhost:5173';
 
 const { after, before, test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -28,7 +29,7 @@ async function request(route, options = {}) {
 }
 
 before(async () => {
-  await mongoose.connect('mongodb://127.0.0.1:27017/insurance_policy_test');
+  await mongoose.connect(process.env.TEST_MONGODB_URI || 'mongodb://127.0.0.1:27017/insurance_policy_test');
   await mongoose.connection.dropDatabase();
   const [admin, agent, holder, officer] = await User.create([
     { name: 'Test Admin', email: 'admin@test.example', password: 'Admin@123', role: 'admin' },
@@ -54,9 +55,19 @@ after(async () => {
 });
 
 test('authentication, role checks, policy, claims, payments, and reports work together', async () => {
-  const health = await request('/health');
+  const health = await request('/health', { headers: { Origin: 'http://localhost:5173' } });
   assert.equal(health.response.status, 200);
   assert.equal(health.data.status, 'ok');
+  assert.equal(health.response.headers.get('access-control-allow-origin'), 'http://localhost:5173');
+
+  const missingRoute = await request('/not-a-real-api-route');
+  assert.equal(missingRoute.response.status, 404);
+  assert.match(missingRoute.data.message, /API route/);
+
+  const disallowedOrigin = await fetch(`${baseUrl}/health`, {
+    headers: { Origin: 'https://untrusted.example' },
+  });
+  assert.equal(disallowedOrigin.headers.get('access-control-allow-origin'), null);
 
   const registration = await request('/auth/register', {
     method: 'POST',
@@ -159,17 +170,51 @@ test('authentication, role checks, policy, claims, payments, and reports work to
   const paymentResult = await request('/payments', {
     method: 'POST',
     role: 'agent',
-    body: { policy: policy._id, amount: 2500, paymentStatus: 'Completed' },
+    body: { policy: policy._id, amount: 1000, paymentStatus: 'Completed' },
   });
   assert.equal(paymentResult.response.status, 201);
+  assert.equal(paymentResult.data.paymentMethod, 'Bank transfer');
+
+  const balances = await request('/payments/balances', { role: 'holder' });
+  assert.equal(balances.response.status, 200);
+  assert.equal(balances.data.length, 1);
+  assert.equal(balances.data[0].amountPaid, 1000);
+  assert.equal(balances.data[0].remainingAmount, 1500);
+
+  const unauthorizedRepayment = await request('/payments/repay', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${registration.data.token}` },
+    body: { policy: policy._id },
+  });
+  assert.equal(unauthorizedRepayment.response.status, 404);
+
+  const repayment = await request('/payments/repay', {
+    method: 'POST',
+    role: 'holder',
+    body: { policy: policy._id },
+  });
+  assert.equal(repayment.response.status, 201);
+  assert.equal(repayment.data.payment.amount, 1500);
+  assert.equal(repayment.data.payment.paymentMethod, 'Bank transfer');
+  assert.equal(repayment.data.remainingAmount, 0);
+
+  const alreadyPaid = await request('/payments/repay', {
+    method: 'POST',
+    role: 'holder',
+    body: { policy: policy._id },
+  });
+  assert.equal(alreadyPaid.response.status, 400);
+
+  const clearedBalance = await request('/payments/balances', { role: 'holder' });
+  assert.equal(clearedBalance.data[0].remainingAmount, 0);
   const holderPayments = await request('/payments', { role: 'holder' });
-  assert.equal(holderPayments.data.length, 1);
+  assert.equal(holderPayments.data.length, 2);
 
   const reportPaths = ['policy-register', 'claims-status', 'premium-collection', 'claim-settlement'];
   for (const reportPath of reportPaths) {
     const report = await request(`/reports/${reportPath}`, { role: 'admin' });
     assert.equal(report.response.status, 200, `${reportPath} should load`);
-    assert.equal(report.data.length, 1);
+    assert.equal(report.data.length, reportPath === 'premium-collection' ? 2 : 1);
   }
   const deniedReport = await request('/reports/claims-status', { role: 'agent' });
   assert.equal(deniedReport.response.status, 403);

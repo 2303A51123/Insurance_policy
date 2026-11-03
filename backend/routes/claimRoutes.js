@@ -11,7 +11,7 @@ const asyncHandler = require('../middleware/asyncHandler');
 const { auth, allowRoles } = require('../middleware/auth');
 
 const router = express.Router();
-const uploadFolder = path.join(__dirname, '..', 'uploads');
+const uploadFolder = process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads');
 fs.mkdirSync(uploadFolder, { recursive: true });
 
 const storage = multer.diskStorage({

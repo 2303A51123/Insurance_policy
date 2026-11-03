@@ -6,6 +6,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState('');
 
   useEffect(() => {
     async function loadUser() {
@@ -18,9 +19,13 @@ export function AuthProvider({ children }) {
       try {
         const { data } = await api.get('/auth/me');
         setUser(data.user);
-      } catch {
-        localStorage.removeItem('insurance-token');
-        localStorage.removeItem('insurance-user');
+      } catch (requestError) {
+        if (requestError.response?.status === 401) {
+          localStorage.removeItem('insurance-token');
+          localStorage.removeItem('insurance-user');
+        } else {
+          setAuthError(requestError.response?.data?.message || 'Could not verify your saved session. Check your connection and try again.');
+        }
       } finally {
         setLoading(false);
       }
@@ -33,6 +38,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('insurance-token', data.token);
     localStorage.setItem('insurance-user', JSON.stringify(data.user));
     setUser(data.user);
+    setAuthError('');
   }
 
   async function register(details) {
@@ -40,15 +46,17 @@ export function AuthProvider({ children }) {
     localStorage.setItem('insurance-token', data.token);
     localStorage.setItem('insurance-user', JSON.stringify(data.user));
     setUser(data.user);
+    setAuthError('');
   }
 
   function logout() {
     localStorage.removeItem('insurance-token');
     localStorage.removeItem('insurance-user');
     setUser(null);
+    setAuthError('');
   }
 
-  const value = useMemo(() => ({ user, loading, login, register, logout }), [user, loading]);
+  const value = useMemo(() => ({ user, loading, authError, login, register, logout }), [user, loading, authError]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

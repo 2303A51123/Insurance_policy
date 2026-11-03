@@ -2,11 +2,20 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 
 const app = express();
+const configuredOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? configuredOrigins
+  : process.env.NODE_ENV === 'production' ? [] : ['http://localhost:5173'];
 
-app.use(cors());
+app.disable('x-powered-by');
+app.use(cors({ origin: allowedOrigins.length ? allowedOrigins : false }));
 app.use(express.json());
 
 app.use('/api/auth', require('./routes/authRoutes'));
@@ -18,7 +27,24 @@ app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/reports', require('./routes/reportRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ status: 'error', message: 'Database is not connected.' });
+  }
+  return res.json({ status: 'ok' });
+});
+
+app.use('/api', (req, res) => res.status(404).json({ message: 'API route was not found.' }));
+
+if (process.env.FRONTEND_DIST_DIR) {
+  const frontendDirectory = path.resolve(process.env.FRONTEND_DIST_DIR);
+  app.use(express.static(frontendDirectory));
+  app.get('*', (req, res, next) => {
+    res.sendFile(path.join(frontendDirectory, 'index.html'), (error) => {
+      if (error) next(error);
+    });
+  });
+}
 
 app.use((error, req, res, next) => {
   if (error.name === 'MulterError') {
@@ -40,18 +66,24 @@ app.use((error, req, res, next) => {
     return res.status(401).json({ message: 'Your session is invalid. Please log in again.' });
   }
   console.error(error);
-  return res.status(error.message.startsWith('Upload a ') ? 400 : 500).json({
-    message: error.message || 'Something went wrong.',
+  const status = error.statusCode || error.status || (error.message?.startsWith('Upload a ') ? 400 : 500);
+  return res.status(status).json({
+    message: status < 500 || process.env.NODE_ENV !== 'production'
+      ? error.message || 'Something went wrong.'
+      : 'Something went wrong.',
   });
 });
 
 async function startServer() {
-  if (!process.env.JWT_SECRET) {
-    throw new Error('JWT_SECRET is missing. Copy .env.example to .env and set a secret.');
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32 || process.env.JWT_SECRET.startsWith('replace-')) {
+    throw new Error('Set JWT_SECRET to a private random value with at least 32 characters.');
+  }
+  if (process.env.NODE_ENV === 'production' && !allowedOrigins.length && !process.env.FRONTEND_DIST_DIR) {
+    throw new Error('Set CORS_ORIGIN to the deployed frontend origin before starting the API in production.');
   }
   await connectDB();
   const port = process.env.PORT || 5000;
-  app.listen(port, () => console.log(`API listening at http://localhost:${port}`));
+  app.listen(port, () => console.log(`API listening on port ${port}`));
 }
 
 if (require.main === module) {

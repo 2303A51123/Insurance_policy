@@ -7,6 +7,7 @@ const paymentSchema = new mongoose.Schema(
     amount: { type: Number, required: true, min: 0 },
     paymentDate: { type: Date, default: Date.now },
     paymentStatus: { type: String, enum: ['Pending', 'Completed'], default: 'Completed' },
+    paymentMethod: { type: String, enum: ['Bank transfer'], default: 'Bank transfer' },
   },
   { timestamps: true }
 );

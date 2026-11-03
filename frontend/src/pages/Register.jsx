@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Notice from '../components/Notice';
+import { BrandMark } from '../components/Icon';
 
 export default function Register() {
-  const { user, register } = useAuth();
+  const { user, authError, register } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', password: '', phone: '' });
   const [error, setError] = useState('');
@@ -29,10 +30,11 @@ export default function Register() {
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <span className="brand-mark large">P</span>
+        <BrandMark large />
         <p className="eyebrow">POLICY DESK</p>
         <h1>Create policyholder account</h1>
         <p className="muted">Registration creates a policyholder account.</p>
+        <Notice message={authError} />
         <form className="form-stack" onSubmit={submit}>
           <label>Full name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
           <label>Email<input type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>

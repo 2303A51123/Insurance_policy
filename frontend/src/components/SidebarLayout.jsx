@@ -9,7 +9,13 @@ export default function SidebarLayout() {
     <div className="app-shell">
       <Navbar />
       <div className="layout-body">
-        <aside className="desktop-sidebar"><Sidebar role={user?.role} /></aside>
+        <aside className="desktop-sidebar">
+          <Sidebar role={user?.role} />
+          <div className="sidebar-note">
+            <span className="sidebar-note-mark">✓</span>
+            <div><strong>Private workspace</strong><span>Your information stays secure</span></div>
+          </div>
+        </aside>
         <main className="main-content"><Outlet /></main>
       </div>
     </div>
