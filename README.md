@@ -1,4 +1,4 @@
-# Insurance Policy and Claims Management System
+# Insurance_policy: Insurance Policy and Claims Management System
 
 A beginner-friendly MERN application for managing insurance products, policyholders, policies, claims, premium payments, and reports.
 
@@ -71,7 +71,7 @@ Set-Location frontend
 npm run dev
 ```
 
-Open the frontend address printed by Vite (usually `http://localhost:5173`). The Vite development server forwards `/api` and `/uploads` requests to the Express API at `http://localhost:5000`.
+Open the frontend address printed by Vite (usually `http://localhost:5173`). The Vite development server forwards `/api` requests to the Express API at `http://localhost:5000`.
 
 The seed command creates demonstration data only when the database has no users. It creates four accounts, two products, two policies, a payment, and a claim.
 
