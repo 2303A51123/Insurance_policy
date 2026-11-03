@@ -29,7 +29,7 @@ async function claimsStatus(req, res) {
 }
 
 async function premiumCollection(req, res) {
-  const payments = await Payment.find()
+  const payments = await Payment.find({ paymentStatus: 'Completed' })
     .populate('policy', 'policyNumber')
     .populate('policyholder', 'name')
     .sort({ paymentDate: -1 });
