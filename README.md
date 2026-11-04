@@ -92,7 +92,7 @@ Public registration creates policyholder accounts only. An admin or agent can al
 
 - **Login and registration:** Sign in or create a policyholder account.
 - **Dashboard:** Role-aware counts for policies, claims, pending reviews, products, and completed premium payments.
-- **Insurance products:** Everyone can browse; admins can add, edit, or delete products.
+- **Insurance products:** Everyone can browse; admins can add, edit, or delete products. If the catalog is empty on backend startup, Health Secure and Motor Protect are added automatically as available plans.
 - **Policies:** Admins and agents create policies; policyholders see only their own policies and renewal dates.
 - **Claims:** Policyholders select an available insurance product directly in the claim form's policy dropdown. Selecting a product immediately activates it for that customer, who can then submit claims against their own policies and attach supporting documents. Claims officers review assigned claims, add remarks, approve/reject, and record a settlement. Admins can assign claims officers.
 - **Premium payments:** Admins and agents record payment entries. Policyholders see the amount paid and remaining balance for each policy, then can record the full remaining amount as a simulated bank transfer. No bank details are collected and no real money moves.

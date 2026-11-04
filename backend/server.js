@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db');
+const ensureDefaultProducts = require('./config/defaultProducts');
 
 const app = express();
 const configuredOrigins = (process.env.CORS_ORIGIN || '')
@@ -82,6 +83,7 @@ async function startServer() {
     throw new Error('Set CORS_ORIGIN to the deployed frontend origin before starting the API in production.');
   }
   await connectDB();
+  await ensureDefaultProducts();
   const port = process.env.PORT || 5000;
   app.listen(port, () => console.log(`API listening on port ${port}`));
 }

@@ -8,6 +8,8 @@ const fs = require('node:fs/promises');
 const mongoose = require('mongoose');
 const app = require('../server');
 const User = require('../models/User');
+const InsuranceProduct = require('../models/InsuranceProduct');
+const ensureDefaultProducts = require('../config/defaultProducts');
 
 let server;
 let baseUrl;
@@ -31,6 +33,10 @@ async function request(route, options = {}) {
 before(async () => {
   await mongoose.connect(process.env.TEST_MONGODB_URI || 'mongodb://127.0.0.1:27017/insurance_policy_test');
   await mongoose.connection.dropDatabase();
+  await ensureDefaultProducts();
+  assert.equal(await InsuranceProduct.countDocuments(), 2);
+  await ensureDefaultProducts();
+  assert.equal(await InsuranceProduct.countDocuments(), 2);
   const [admin, agent, holder, officer] = await User.create([
     { name: 'Test Admin', email: 'admin@test.example', password: 'Admin@123', role: 'admin' },
     { name: 'Test Agent', email: 'agent@test.example', password: 'Agent@123', role: 'agent' },
@@ -87,6 +93,14 @@ test('authentication, role checks, policy, claims, payments, and reports work to
     return [role, data.token];
   }));
   tokens = Object.fromEntries(logins);
+
+  const defaultProducts = await request('/products', { role: 'holder' });
+  assert.equal(defaultProducts.response.status, 200);
+  assert.equal(defaultProducts.data.length, 2);
+  assert.deepEqual(
+    defaultProducts.data.map((item) => item.productName).sort(),
+    ['Health Secure', 'Motor Protect']
+  );
 
   const forbiddenProduct = await request('/products', {
     method: 'POST',

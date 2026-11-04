@@ -19,9 +19,17 @@ async function seedData() {
     { name: 'Priya Policyholder', email: 'holder@insurance.com', password: 'Holder@123', phone: '9000000003', role: 'policyholder' },
     { name: 'Ravi Claims Officer', email: 'officer@insurance.com', password: 'Officer@123', phone: '9000000004', role: 'claimsOfficer' },
   ]);
-  const [health, vehicle] = await InsuranceProduct.create([
-    { productName: 'Health Secure', category: 'Health', description: 'Everyday medical expense coverage.', premiumAmount: 4500, coverageAmount: 500000 },
-    { productName: 'Motor Protect', category: 'Vehicle', description: 'Simple vehicle damage protection.', premiumAmount: 3200, coverageAmount: 300000 },
+  const [health, vehicle] = await Promise.all([
+    InsuranceProduct.findOneAndUpdate(
+      { productName: 'Health Secure', category: 'Health' },
+      { $setOnInsert: { description: 'Everyday medical expense coverage.', premiumAmount: 4500, coverageAmount: 500000 } },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    ),
+    InsuranceProduct.findOneAndUpdate(
+      { productName: 'Motor Protect', category: 'Vehicle' },
+      { $setOnInsert: { description: 'Simple vehicle damage protection.', premiumAmount: 3200, coverageAmount: 300000 } },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    ),
   ]);
   const policy = await Policy.create({
     policyNumber: 'POL-DEMO-1001',
