@@ -17,6 +17,48 @@ router.get('/', auth, asyncHandler(async (req, res) => {
   return res.json(policies);
 }));
 
+router.post('/enroll', auth, allowRoles('policyholder'), asyncHandler(async (req, res) => {
+  const { product: productId } = req.body;
+  if (!mongoose.isValidObjectId(productId)) {
+    return res.status(400).json({ message: 'Choose a valid insurance product.' });
+  }
+
+  const product = await InsuranceProduct.findById(productId);
+  if (!product) {
+    return res.status(404).json({ message: 'Insurance product was not found.' });
+  }
+
+  const existingPolicy = await Policy.findOne({
+    policyholder: req.user._id,
+    product: product._id,
+    status: 'Active',
+  })
+    .populate('policyholder', 'name email phone')
+    .populate('product', 'productName category');
+  if (existingPolicy) {
+    return res.json(existingPolicy);
+  }
+
+  const start = new Date();
+  const expiry = new Date(start);
+  expiry.setFullYear(expiry.getFullYear() + 1);
+  const policy = await Policy.create({
+    policyNumber: `POL-${Date.now()}`,
+    policyholder: req.user._id,
+    product: product._id,
+    startDate: start,
+    expiryDate: expiry,
+    renewalDate: expiry,
+    premiumAmount: product.premiumAmount,
+    coverageAmount: product.coverageAmount,
+  });
+  await policy.populate([
+    { path: 'policyholder', select: 'name email phone' },
+    { path: 'product', select: 'productName category' },
+  ]);
+  return res.status(201).json(policy);
+}));
+
 router.post('/', auth, allowRoles('admin', 'agent'), asyncHandler(async (req, res) => {
   const { policyholder, product, startDate, expiryDate } = req.body;
   if (!mongoose.isValidObjectId(policyholder) || !mongoose.isValidObjectId(product)) {

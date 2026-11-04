@@ -218,4 +218,40 @@ test('authentication, role checks, policy, claims, payments, and reports work to
   }
   const deniedReport = await request('/reports/claims-status', { role: 'agent' });
   assert.equal(deniedReport.response.status, 403);
+
+  const selfServiceProduct = await request('/products', {
+    method: 'POST',
+    role: 'admin',
+    body: { productName: 'Self-service Cover', category: 'Health', premiumAmount: 1200, coverageAmount: 120000 },
+  });
+  assert.equal(selfServiceProduct.response.status, 201);
+
+  const policyRequest = await request('/policies/enroll', {
+    method: 'POST',
+    role: 'holder',
+    body: { product: selfServiceProduct.data._id },
+  });
+  assert.equal(policyRequest.response.status, 201);
+  assert.equal(policyRequest.data.status, 'Active');
+  assert.equal(policyRequest.data.policyholder._id, ids.holder);
+  assert.equal(policyRequest.data.product.productName, 'Self-service Cover');
+
+  const repeatedEnrollment = await request('/policies/enroll', {
+    method: 'POST',
+    role: 'holder',
+    body: { product: selfServiceProduct.data._id },
+  });
+  assert.equal(repeatedEnrollment.response.status, 200);
+  assert.equal(repeatedEnrollment.data._id, policyRequest.data._id);
+
+  const deniedEnrollment = await request('/policies/enroll', {
+    method: 'POST',
+    role: 'agent',
+    body: { product: selfServiceProduct.data._id },
+  });
+  assert.equal(deniedEnrollment.response.status, 403);
+
+  const holderPolicies = await request('/policies', { role: 'holder' });
+  assert.equal(holderPolicies.response.status, 200);
+  assert.equal(holderPolicies.data.length, 2);
 });
