@@ -195,4 +195,20 @@ The frontend and API can also be deployed separately:
 - Configure the static host to serve `index.html` for client-side routes such as `/dashboard` and `/payments`.
 - Add the static site's exact origin to the backend's `CORS_ORIGIN`, then rebuild/redeploy the frontend if its API URL changes.
 
+### Deploy the frontend to Vercel
+
+The frontend is a static Vite application. The API must remain deployed separately (for example, as the Render backend service described above).
+
+1. Import this repository into Vercel.
+2. Set **Root Directory** to `frontend` and enable **Include files outside the root directory** only if Vercel requests it. The frontend build does not require files outside `frontend/`.
+3. Use these build settings:
+   - Framework preset: **Vite**
+   - Install command: `npm ci`
+   - Build command: `npm run build`
+   - Output directory: `dist`
+4. Add `VITE_API_URL` as a Vercel environment variable for the deployment environments you use. Set it to the full backend API URL, including `/api`, for example `https://your-backend.onrender.com/api`. Do not add a trailing slash.
+5. Deploy the site, then set the backend service's `CORS_ORIGIN` to the exact Vercel site origin (for example, `https://your-project.vercel.app`, without a trailing slash). Include your custom domain too if you use one. Save the backend environment change and redeploy/restart the backend.
+6. Redeploy the frontend after changing `VITE_API_URL`; Vite embeds it into the build. The included `vercel.json` rewrite sends client-side routes such as `/dashboard` and `/payments` back to `index.html`.
+7. Check `https://your-backend.onrender.com/api/health` and confirm it returns `{"status":"ok"}` before testing the Vercel site. A frontend deployment does not fix a backend that cannot connect to MongoDB.
+
 Do not run `npm run seed` on production; it creates well-known demo accounts and demonstration records. The project is a college/demo application: premium repayment records a simulated transfer and does not process real money.
